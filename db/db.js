@@ -1,18 +1,18 @@
-const sqlite3 = require('sqlite3').verbose();
+// db/db.js
+const fs = require('fs');
+const dbFile = './db/history.json';
 
-const db = new sqlite3.Database('./db/history.db');
+// Ensure history.json exists
+if (!fs.existsSync(dbFile)) fs.writeFileSync(dbFile, JSON.stringify([]));
 
-db.serialize(() => {
-    db.run(`
-        CREATE TABLE IF NOT EXISTS healing_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            testNumber INTEGER,
-            oldLocator TEXT,
-            newLocator TEXT,
-            confidence TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-});
+function saveHistory(step, locator, status) {
+    const history = JSON.parse(fs.readFileSync(dbFile));
+    history.push({ step, locator, status, timestamp: new Date().toISOString() });
+    fs.writeFileSync(dbFile, JSON.stringify(history, null, 2));
+}
 
-module.exports = db;
+function getHistory() {
+    return JSON.parse(fs.readFileSync(dbFile));
+}
+
+module.exports = { saveHistory, getHistory };

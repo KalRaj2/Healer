@@ -1,14 +1,18 @@
 function analyzeFailure(locator, dom) {
 
     if (!dom.includes("button")) {
-        return "Frontend Issue: Button missing in DOM";
+        return "Frontend Issue: Button not rendered";
     }
 
-    if (locator.includes("login") && dom.includes("loginBtn")) {
+    if (locator.toLowerCase().includes("login") && dom.includes("loginBtn")) {
         return "Locator Issue: ID changed";
     }
 
-    return "Unknown Issue";
+    if (locator.startsWith(".")) {
+        return "CSS Class mismatch";
+    }
+
+    return "Unknown issue (needs investigation)";
 }
 
 module.exports = { analyzeFailure };

@@ -1,15 +1,18 @@
+<!-- public/index.html -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Self Healing Tool</title>
+    <title>Self-Healing Tool</title>
 </head>
 <body>
+    <h1>Self-Healing Test Tool</h1>
+    <input id="testUrl" placeholder="Enter URL to test" size="50"/>
+    <button onclick="runTest()">Run Test</button>
+    <button onclick="loadHistory()">Load History</button>
 
-<h2>Test Runner</h2>
-<button onclick="runTest()">Run Test</button>
+    <h2>History</h2>
+    <ul id="historyList"></ul>
 
-<pre id="output"></pre>
-
-<script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

@@ -1,148 +1,73 @@
+// server.js
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // ignore SSL issues locally
+
 const express = require('express');
 const fs = require('fs');
-
+const cors = require('cors');
 const { healLocator } = require('./healing/healer');
 const { analyzeFailure } = require('./analyzer/analyzer');
-const db = require('./db/db');
-const { createPR } = require('./github/pr');
-const { generateToken, verifyToken } = require('./auth/auth');
+const { saveHistory, getHistory } = require('./db/db');
+const { createPR } = require('./github/github');
 
 const app = express();
+const PORT = process.env.PORT || 4050;
 
-app.use(express.static('public'));
+app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
-/* =========================
-   🔐 AUTH (SaaS Ready)
-========================= */
-app.post('/login', (req, res) => {
-    const { username } = req.body;
+// Run test
+app.get('/run-test', async (req, res) => {
+    const testFile = './tests/test.json';
+    if (!fs.existsSync(testFile)) return res.status(404).json({ error: "test.json missing" });
 
-    // simple login (can expand later)
-    const token = generateToken({ username });
+    const tests = JSON.parse(fs.readFileSync(testFile));
 
-    res.json({ token });
-});
+    // For simplicity, we just take first test
+    const test = tests[0];
 
-/* =========================
-   🚀 RUN TESTS (PROTECTED)
-========================= */
-app.get('/run-test', verifyToken, (req, res) => {
-
-    // Load test cases
-    const tests = JSON.parse(fs.readFileSync('./tests/test.json'));
-
-    // Simulated DOM
+    // Mock DOM
     const dom = `
-        <div>
-            <button id="loginBtn" class="btn primary" data-testid="login-button">Login</button>
-            <button id="signupBtn" class="btn secondary">Sign Up</button>
-            <input id="usernameField" class="input" />
-        </div>
+    <div>
+        <button id="loginBtn" class="btn primary">Login</button>
+        <button id="signupBtn" class="btn secondary">Sign Up</button>
+        <input id="usernameField" class="input" />
+    </div>
     `;
 
-    let results = [];
-    let prSuggestions = [];
+    if (dom.includes(test.locator)) {
+        res.json({ status: "PASS" });
+        saveHistory(test.step, test.locator, "PASS");
+    } else {
+        const healed = healLocator(test.locator, dom);
 
-    tests.forEach((test, index) => {
+        if (healed) {
+            // Update test.json
+            test.locator = healed;
+            fs.writeFileSync(testFile, JSON.stringify(tests, null, 2));
 
-        // ✅ PASS
-        if (dom.includes(test.locator)) {
+            // Save history
+            saveHistory(test.step, healed, "HEALED");
 
-            results.push({
-                test: index + 1,
-                status: "PASS"
+            // Create GitHub PR
+            await createPR(test.locator, healed);
+
+            res.json({
+                status: "HEALED & UPDATED",
+                newLocator: healed
             });
-
         } else {
-
-            const oldLocator = test.locator;
-
-            // 🔥 Advanced healer
-            const healResult = healLocator(test.locator, dom);
-
-            if (healResult) {
-
-                const newLocator = healResult.locator;
-                const confidence = healResult.confidence;
-
-                // Update test
-                test.locator = newLocator;
-
-                // Save history in DB
-                db.run(
-                    `INSERT INTO healing_history 
-                    (testNumber, oldLocator, newLocator, confidence)
-                    VALUES (?, ?, ?, ?)`,
-                    [index + 1, oldLocator, newLocator, confidence]
-                );
-
-                results.push({
-                    test: index + 1,
-                    status: "HEALED",
-                    old: oldLocator,
-                    new: newLocator,
-                    confidence: confidence + "%"
-                });
-
-                prSuggestions.push(`
-Test ${index + 1}
-Old Locator: ${oldLocator}
-New Locator: ${newLocator}
-Confidence: ${confidence}%
-`);
-
-            } else {
-
-                // ❌ FAIL
-                const reason = analyzeFailure(test.locator, dom);
-
-                results.push({
-                    test: index + 1,
-                    status: "FAIL",
-                    reason: reason
-                });
-            }
+            const reason = analyzeFailure(test.locator, dom);
+            saveHistory(test.step, test.locator, "FAIL");
+            res.json({ status: "FAIL", reason });
         }
-    });
-
-    // Save updated tests
-    fs.writeFileSync('./tests/test.json', JSON.stringify(tests, null, 2));
-
-    // Create PR if healing happened
-    if (prSuggestions.length > 0) {
-        const content = prSuggestions.join('\n----------------\n');
-
-        // Save locally
-        fs.writeFileSync('./healing/pr.txt', content);
-
-        // 🔗 Send to GitHub
-        createPR(content)
-            .then(() => console.log("✅ PR Created"))
-            .catch(err => console.log("❌ PR Error:", err.message));
     }
-
-    res.json(results);
 });
 
-/* =========================
-   📊 VIEW HISTORY (OPTIONAL API)
-========================= */
-app.get('/history', verifyToken, (req, res) => {
-
-    db.all("SELECT * FROM healing_history ORDER BY timestamp DESC", [], (err, rows) => {
-        if (err) {
-            return res.json({ error: err.message });
-        }
-        res.json(rows);
-    });
+// Get history
+app.get('/history', (req, res) => {
+    const history = getHistory();
+    res.json(history);
 });
 
-/* =========================
-   🚀 START SERVER
-========================= */
-const PORT = 3000;
-
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

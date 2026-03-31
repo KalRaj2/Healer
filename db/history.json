@@ -1,0 +1,11 @@
+[
+  {
+    "step": "login",
+    "locator": {
+      "locator": "#loginBtn",
+      "confidence": "54.55"
+    },
+    "status": "HEALED",
+    "timestamp": "2026-03-31T22:44:54.380Z"
+  }
+]

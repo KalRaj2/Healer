@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: self-healing-tool
+    name: ai-qa-tool
     env: node
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node server.js

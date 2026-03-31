@@ -1,0 +1,18 @@
+name: QA Tool CI
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+
+      - run: npm install
+      - run: node server.js &
+      - run: sleep 5
+      - run: curl http://localhost:4050/run-test?url=https://example.com

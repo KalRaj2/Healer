@@ -1,5 +1,17 @@
 [
-  { "step": "click login", "locator": "#loginButton" },
-  { "step": "click login", "locator": ".primaryBtn" },
-  { "step": "click login", "locator": "Login" }
+  {
+    "step": "login",
+    "locator": {
+      "locator": "#loginBtn",
+      "confidence": "54.55"
+    }
+  },
+  {
+    "step": "signup",
+    "locator": ".primaryBtn"
+  },
+  {
+    "step": "text",
+    "locator": "Login"
+  }
 ]
